@@ -1,0 +1,1 @@
+Hello, ngokho, welcome to the CS 3700 FTP server. This is your personal spacewhere you may upload and download files, and organize them in directories.

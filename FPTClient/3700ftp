@@ -1,0 +1,191 @@
+#!/usr/bin/python3
+import socket
+import argparse
+from urllib.parse import urlparse
+import re
+
+class Client:
+    def __init__(self, operation, origin, dest):
+        self.operation = operation
+        self.origin = urlparse(origin)
+        if (dest):
+            self.dest = urlparse(dest)
+        else:
+            self.dest = 0
+        self.controlChannel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.dataChannel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.dataHostName = None
+        self.dataPort = None
+        self.Connect()
+        self.Login()
+        self.Execute() 
+        self.Quit()
+
+    def Execute(self):
+        if self.operation == "ls":
+            self.SetUpTransfer()
+            self.PASV()
+            self.List()
+            self.Quit()
+        elif self.operation == "mkdir":
+            self.MKD()
+        elif self.operation == "rm":
+            self.Dele()
+        elif self.operation == "rmdir":
+            self.RMD()
+        elif self.operation == "cp":
+            self.SetUpTransfer()
+            self.PASV()
+            if self.origin.hostname is not None:
+                self.RETR()
+            else:
+                self.Stor()
+        elif self.operation == "mv":
+            self.SetUpTransfer() 
+            self.PASV() 
+            if self.origin.hostname is not None:
+                self.RETR()
+                self.Dele()
+            else:
+                self.Stor()
+
+        else:
+            print("Invalid Operation")
+
+    def SetUpTransfer(self):
+        self.Mode()
+        self.Type()
+        self.Stru()
+
+    def Connect(self):
+        if self.origin.hostname is None:
+            self.controlChannel.connect((self.dest.hostname, 21 if self.dest.port == None else self.dest.port))
+        else:
+            self.controlChannel.connect((self.origin.hostname, 21 if self.origin.port == None else self.origin.port))
+        self.ControlReceive()
+
+    def Login(self):
+        if (self.origin.username is None):
+            USER = f"USER {self.dest.username}\r\n"
+            PASSWORD = f"PASS {self.dest.password}\r\n"
+        else:
+            USER = f"USER {self.origin.username}\r\n"
+            PASSWORD = f"PASS {self.origin.password}\r\n"
+        self.controlChannel.send(USER.encode())
+        self.ControlReceive()
+        self.controlChannel.send(PASSWORD.encode())
+        self.ControlReceive()
+
+    def ControlReceive(self):
+        data = None
+        while True:
+            data = self.controlChannel.recv(4096).decode()
+            if not data:
+                break
+            print(data.strip("\r\n"))
+            return data
+
+    def DataReceive(self):
+        data = None
+        while True:
+            data = self.dataChannel.recv(4096)
+            if not data:
+                break
+            print(data)
+            return data
+        self.dataChannel.close()
+
+    def Type(self):
+        command = "TYPE I\r\n"
+        self.controlChannel.send(command.encode())
+        self.ControlReceive()
+
+    def Stru(self):
+        command = "STRU F\r\n"
+        self.controlChannel.send(command.encode())
+        self.ControlReceive()
+
+    def List(self):
+        command = f"LIST {self.origin.path}\r\n"
+        self.controlChannel.send(command.encode())
+        self.ControlReceive()
+        self.DataReceive()
+        self.ControlReceive()
+
+    def Dele(self):
+        command = f"DELE {self.origin.path}\r\n"
+        self.controlChannel.send(command.encode())
+        self.ControlReceive()
+
+    def MKD(self):
+        command = f"MKD {self.origin.path}\r\n"
+        self.controlChannel.send(command.encode())
+        self.ControlReceive()
+
+    def RMD(self):
+        command = f"RMD {self.origin.path}\r\n"
+        self.controlChannel.send(command.encode())
+        self.ControlReceive()
+
+    def Stor(self):
+        command = f"STOR {self.dest.path}\r\n"
+        self.controlChannel.send(command.encode())
+        f = open(f"{self.origin.path}", "rb")
+        while True:
+            dataFromFile = f.read(4096)
+            if not dataFromFile:
+                break
+            self.dataChannel.sendall(dataFromFile)
+        self.dataChannel.close()
+        self.ControlReceive()
+
+    def RETR(self):
+        command = f"RETR {self.origin.path}\r\n"
+        self.controlChannel.send(command.encode())
+        dest = open(f"{self.dest.path}", "wb")
+        while True:
+            data = self.DataReceive()
+            if not data:
+                break
+            dest.write(data)
+            
+        self.ControlReceive()
+
+    def PASV(self):
+        command = "PASV\r\n"
+        self.controlChannel.send(command.encode())
+        data = self.ControlReceive()
+        pattern = re.compile(r'\b\d{1,3}\b')
+        LoN = pattern.findall(data)
+        hostname = ""
+        for num in LoN[1:5]:
+            hostname += f"{num}."
+        self.dataHostName = hostname[:-1]
+        self.dataPort = (int(LoN[5]) << 8) + int(LoN[6])
+        self.dataChannel.connect((self.dataHostName, self.dataPort))
+    
+
+    def Mode(self):
+        command = "MODE S\r\n"
+        self.controlChannel.send(command.encode())
+        self.ControlReceive()
+
+    def Quit(self):
+        command = "QUIT\r\n"
+        self.controlChannel.send(command.encode())
+        self.ControlReceive()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("operation", type=str)
+    parser.add_argument("url", type=str, nargs="+")
+
+    p = parser.parse_args()
+
+    if len(p.url) > 1: 
+        Client(p.operation, p.url[0], p.url[1])
+    else: 
+        Client(p.operation, p.url[0], None)
+
+main()
