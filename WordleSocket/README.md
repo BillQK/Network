@@ -1,0 +1,5 @@
+This is a client program that communcate with a Wordle server guessing the correct word. In this program, I learnt on how a socket work with different protocal like TLS connection. The most challenging part I faced with this project is understand how the client and server communicating, and dealing with a new programming language. To overcome this challenge, I have built a simple server and client program. Because of that I'm able to understand the how it communiting to each other. Also, this is also my first python project, however with my knowledge in previous class. I'm able to adapt object oriented programming into this project. 
+
+For the guessing strategy, I noticed that server response includes markings for each location of the characters. Utilizing the 0 marking, I come up with a strategy that is to skip every words that has a specific character in the specific location. With this strategy, I'm able to guess the word with in 10 to 20 guesses. 
+
+Testing this program, I often use print() for data sending and receiving, utilizing the VSCodeStudio debug program for guessing logic, and using the terminal for arguments parsing. 

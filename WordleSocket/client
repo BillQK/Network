@@ -1,0 +1,123 @@
+#!/usr/bin/python3
+import ssl
+import socket
+import argparse
+import json
+
+FORMAT = "utf-8"
+class Client:
+    def __init__(self, port, tls, host, username):
+        self.port = port
+        self.tls = tls
+        self.host = host
+        self.username = username
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.LoW = self.loadWordList()
+        self.connect()
+
+    def loadWordList(self):
+        with open('project1-words.txt') as f:
+            data = f.readlines()
+        Words = []
+        for line in data:
+            if line[-1] == "\n":
+                Words.append(line[:-1])
+        else:
+            Words.append(line)
+        return Words
+
+    def hellomsg(self, username):
+        msg = {"type": "hello", "northeastern_username": username}
+        message = json.dumps(msg) + '\n'
+        return message
+
+    def wrap_tls(self, socket):
+        protocal = ssl.create_default_context()
+        return protocal.wrap_socket(socket)
+
+    def get_id(self):
+        result = self.s.recv(1024)
+        result = json.loads(result)
+        return result["id"]
+
+    def connect(self):
+        ip = self.host
+        port = self.port
+        tls = self.tls
+        try:
+            if (tls):
+                self.s = ssl.wrap_socket(self.s)
+                port = 27994
+            else:
+                port = 27993
+            self.s.connect((ip, port))
+            self.s.send(bytes(self.hellomsg(self.username), FORMAT))
+            self.guess(self.get_id())
+
+        except socket.error as msg:
+            self.s.close()
+
+    def guess(self, idGiven):
+        # Store invalid characters 
+        LoIC = []
+        # Store invalid index of character 
+        LoII = [] 
+        # Store number of guesses
+        cG = 0
+        # Loop guesses max:500
+        for word in self.LoW: 
+            if cG > 500: 
+                break
+            # Boolean validWord 
+            validWord = True
+            # Initialize Array of Character from Word    
+            LoC = list(word)
+            # Loop checking with pairs if character is in the LoIC and LoII
+            for i in range(0, len(LoC)): 
+                for j in range(0, len(LoIC)):
+                    if LoC[i] == LoIC[j] and i == LoII[j]:
+                        validWord = False
+                        break
+
+            g = {"type": "guess", "id": idGiven, "word": word}
+            str_g = json.dumps(g) + "\n"
+            serverRes = ""
+
+            if validWord:
+                self.s.send(bytes(str_g,FORMAT))
+                while True: 
+                    response = self.s.recv(1024)
+                    response = response.decode(FORMAT)
+                    serverRes += response
+                    if len(serverRes) > 0 and serverRes[-1] == "\n":
+                        break
+                
+                dataFromServer = json.loads(serverRes)
+                if dataFromServer["type"] == "retry":
+                    LoL = list(word)
+                    LoM = dataFromServer["guesses"][cG]["marks"]
+                    countIndex = -1
+                    for letter in LoL:
+                        countIndex += 1
+                        if LoM[countIndex] == 0:
+                            LoIC.append(letter)
+                            LoII.append(countIndex)
+                    cG += 1 
+
+                if dataFromServer["type"] == "bye":
+                    print(dataFromServer["flag"])
+                    exit()
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("hostname")
+    parser.add_argument("NortheasternUsername", type=str)
+    parser.add_argument("-p", "-port", type=int, default=27994)
+    parser.add_argument("-s", action="store_true", default=0)
+
+    args = parser.parse_args()
+
+    c = Client(args.p, args.s, args.hostname, args.NortheasternUsername)
+
+    
+main()
