@@ -1,1 +1,3 @@
-hi this a readme    
+This is a client program that communcate with a FTP server with a features like rm, rmdir, cp, mv and ls. In this program, I learnt on how a socket work with different protocal like TLS connection. The most challenging part I faced with this project is understand how the client and server communicating and parsing the server response when collecting the hostname and the port for the data channel, and implementing the data channel. To overcome this challenge, FileZilla was a great help for me to understand what the server is responding and how it using the data channel. In addition to that, I also learn how to use regular expression and url parsing in order to collect information from the server response and the url. 
+
+Testing this program, I often use print() for data sending and receiving, utilizing the VSCodeStudio debug program for guessing logic, and using the terminal for arguments parsing. 

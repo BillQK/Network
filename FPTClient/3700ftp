@@ -188,4 +188,5 @@ def main():
     else: 
         Client(p.operation, p.url[0], None)
 
-main()
+if __name__ == "__main__":
+    main()
